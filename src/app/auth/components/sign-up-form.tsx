@@ -18,8 +18,11 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { authClient } from "@/lib/auth-client";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
+import { toast } from "sonner";
 import z from "zod";
 
 const formSchema = z
@@ -39,10 +42,12 @@ const formSchema = z
     },
   );
 
-type FormData = z.infer<typeof formSchema>;
+type FormValues = z.infer<typeof formSchema>;
 
 const SignUpForm = () => {
-  const form = useForm<FormData>({
+  const router = useRouter();
+
+  const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
@@ -52,8 +57,27 @@ const SignUpForm = () => {
     },
   });
 
-  function onSubmit(data: FormData) {
-    console.log("Form submitted:", data);
+  async function onSubmit(values: FormValues) {
+    await authClient.signUp.email({
+      name: values.name,
+      email: values.email,
+      password: values.password,
+      fetchOptions: {
+        onSuccess: () => {
+          toast.success("Conta criada com sucesso!");
+          router.push("/");
+        },
+        onError: (error) => {
+          if (error.error.code === "USER_ALREADY_EXISTS") {
+            toast.error("Email já existe!");
+            return form.setError("email", {
+              message: "Email já existe!",
+            });
+          }
+          toast.error(error.error.message || "Erro ao criar conta");
+        },
+      },
+    });
   }
 
   return (
